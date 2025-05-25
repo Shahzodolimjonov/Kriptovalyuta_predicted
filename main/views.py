@@ -16,6 +16,7 @@ class CryptoPredictionView(APIView):
 
         df = pd.DataFrame(list(CryptoPrice.objects.filter(symbol=symbol).order_by('date').values()))
         last_date = pd.to_datetime(df['date'].max())
+        print(f"{last_date} date time")
 
         predict_days = 5
         predicted_prices = train_and_predict(symbol=symbol, look_back=30, predict_days=predict_days)
@@ -33,18 +34,39 @@ class CryptoPredictionView(APIView):
         })
 
 
-class CryptoPredictionPlotView(APIView):
+class CryptoPredictionDataView(APIView):
     def get(self, request):
         symbol = request.GET.get('symbol', 'BTC')
+        look_back = 30
+        predict_days = int(request.GET.get('days', 15))
 
         df = pd.DataFrame(list(CryptoPrice.objects.filter(symbol=symbol).order_by('date').values()))
-        actual_prices = df['close'].tail(30).tolist()
+        if df.empty:
+            return Response({"error": f"No data found for symbol {symbol}"}, status=404)
 
-        predicted_prices = train_and_predict(symbol=symbol, look_back=30, predict_days=15)
+        df['date'] = pd.to_datetime(df['date'])
+        actual_data = df.tail(look_back)
+        actual_prices = actual_data['close'].tolist()
+        actual_dates = actual_data['date'].dt.strftime('%Y-%m-%d').tolist()
 
-        img_buf = plot_prediction(actual_prices, predicted_prices, symbol)
+        predicted_prices = train_and_predict(symbol=symbol, look_back=look_back, predict_days=predict_days)
+        last_date = pd.to_datetime(df['date'].max())
+        predicted_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=predict_days)
+        predicted_dates = predicted_dates.strftime('%Y-%m-%d').tolist()
 
-        return HttpResponse(img_buf, content_type='image/png')
+        result = {
+            "symbol": symbol,
+            "actual": [
+                {"date": date, "price": round(price, 6)}
+                for date, price in zip(actual_dates, actual_prices)
+            ],
+            "predicted": [
+                {"date": date, "price": round(price, 6)}
+                for date, price in zip(predicted_dates, predicted_prices)
+            ]
+        }
+
+        return Response(result)
 
 
 class CryptoPricesByDateView(APIView):
