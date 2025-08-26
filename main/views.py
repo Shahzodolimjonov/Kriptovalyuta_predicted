@@ -87,3 +87,35 @@ class CryptoPricesByDateView(APIView):
             })
 
         return Response(result)
+
+
+class PortfolioSimulationView(APIView):
+    def get(self, request):
+        symbol = request.GET.get('symbol', 'BTC')
+        amount = float(request.GET.get('initial_amount', 100))
+        days = int(request.GET.get('days', 5))
+        look_back = 30
+
+        df = pd.DataFrame(list(CryptoPrice.objects.filter(symbol=symbol).order_by('date').values()))
+        if df.empty:
+            return Response({"error": f"No data found for symbol {symbol}"}, status=404)
+
+        last_price = df['close'].iloc[-1]
+
+        predicted_prices = train_and_predict(symbol=symbol, look_back=look_back, predict_days=days)
+        final_price = predicted_prices[-1]
+
+        coins_bought = amount / last_price
+        predicted_value = coins_bought * final_price
+
+        result = {
+            "symbol": symbol,
+            "initial_amount": amount,
+            "days": days,
+            "last_price": round(last_price, 2),
+            "predicted_final_price": round(final_price, 2),
+            "predicted_value": round(predicted_value, 2),
+            "profit": round(predicted_value - amount, 2)
+        }
+        return Response(result)
+

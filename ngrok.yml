@@ -1,0 +1,5 @@
+tunnels:
+  app:
+    proto: http
+    addr: 8000
+    subdomain: mycryptoapi
