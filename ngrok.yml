@@ -2,4 +2,4 @@ tunnels:
   app:
     proto: http
     addr: 8000
-    subdomain: mycryptoapi
+    domain: glowing-factual-sawfish.ngrok-free.app
